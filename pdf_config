@@ -1,0 +1,969 @@
+# -*- coding: utf-8 -*-
+
+COL_SEP = '\t'  # 表格列连接符号
+REGEX = 'REGEX'  # 识别模板的正则
+TABLE_SETTINGS = 'TABLE_SETTINGS'  # 提取表格的参数
+BEGIN_ROW1 = 'BEGIN_ROW1'  # 表格首行
+BEGIN_ROW2 = 'BEGIN_ROW2'  # 表格第二行
+END_ROW1 = 'END_ROW1'  # 表格尾行
+END_ROW2 = 'END_ROW2'  # 表格倒数第二行
+REAL_ROW = 'REAL_ROW'  # 非换行文本
+BREAK_ROW = 'BREAK_ROW'  # 换行文本
+COLUMNS = 'COLUMNS'  # 表头
+
+CONFIG = {
+    'ALSO': {
+        REGEX: r"(?i)Document Your document Date Cash discount Gross amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [41, 114, 205, 361, 475, 568]
+        },
+        BEGIN_ROW1: r'(?i)([\d]{,20})\s+([a-z]{1,3}\d+)\s+([\d\.\/\-]{6,12})\s+([\d\,\.\-]+)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([\d]{,20})\s+([a-z]{1,3}\d+)\s+([\d\.\/\-]{6,12})\s+([\d\,\.\-]+)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['YOUR', 'Invoice No', 'Data', 'Cash discount', 'Payment']
+    },
+
+    'Orange Romania S.A.': {
+        REGEX: r"(?i)Factura Factura Data Valoare Suma Reducere Reducere Reducere TVA TVA Valoare Neta",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [45, 123, 160, 220, 277, 348, 405, 465, 510, 540, 582, 646]
+        },
+        BEGIN_ROW1: r'(?is)([\d]+\_[a-z\d\s]+)([\_\.\d]{4,20})\s+([\d\.\,\-]+)\s+([\d\.\,\-]+)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?is)([\d]+\_[a-z\d\s]+)([\_\.\d]{4,20})\s+([\d\.\,\-]+)\s+([\d\.\,\-]+)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice No', 'Data', 'Data Confirmata', 'Valoare(1)', 'Suma', 'Reducere1',
+                  'Reducere2', 'Reducere3', 'TVA%', 'TVA Valoare', 'Payment']
+    },
+
+    'Telenor Norge AS': {
+        REGEX: r"(?i)TYPE MELDING\s+REF TIL FAKTURA/KREDITNOTA\s+KID\s+BELØP",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [69, 146, 405, 435, 522]
+        },
+        BEGIN_ROW1: r'(?i)([a-z\d]{,10})\s+([a-z]{2,3}[\d]{4,12})\s+([\d\.\,\-]+)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([a-z\d]{,10})\s+([a-z]{2,3}[\d]{4,12})\s+([\d\.\,\-]+)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['TYPE MELDING', 'Invoice Number', 'KID', 'Payment Amount']
+    },
+
+    'Cable & Wireless': {
+        REGEX: r"(?i)Invoice Number Inv Date Gross Amount Deductions Net Amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [42, 140, 218, 335, 435, 529]
+        },
+        BEGIN_ROW1: r'(?is)([a-z]{2,3}\d{4,12})\s+([\d\.\-\/]{6,12})\s+([\d\.\,\-]{1,30})\s+([\d\.\,\-]{1,30})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?is)([a-z]{2,3}\d{4,12})\s+([\d\.\-\/]{6,12})\s+([\d\.\,\-]{1,30})\s+([\d\.\,\-]{1,30})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Number', 'Inv Date', 'Gross', 'Deductions', 'Net Amount']
+    },
+
+    'A1 BULGARIA EAD': {
+        REGEX: r"(?i)Наш док. N\s\_*Ваш документ N\s\_*Дата на док.\s\_*Брутна сума",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [49, 113, 225, 400, 562]
+        },
+        BEGIN_ROW1: r'(?i)([\d]{4,12})\s+([\d]{4,15})\s+([\d\.\/\-]{6,12})\s+([\d\,\.\-]+)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([\d]{4,12})\s+([\d]{4,15})\s+([\d\.\/\-]{6,12})\s+([\d\,\.\-]+)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Наш док. N', 'Invoice No', 'Date', 'Payment']
+    },
+
+    'SFR': {
+        REGEX: r"(?i)Document date Your references Our references Amount in LC Amount in DC",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [13, 93, 185, 315, 445, 566]
+        },
+        BEGIN_ROW1: r'(?is)([\d\/]{4,12})\s+([a-z]{2,4}[\d\-]+)\s+([\d]+)\s+([\d\,\.\-]+)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?is)([\d\/]{4,12})\s+([a-z]{2,4}[\d\-]+)\s+([\d]+)\s+([\d\,\.\-]+)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Your references', 'ours', 'Amount in LC', 'Payment']
+    },
+
+    'Utopia Technology Ltd': {
+        REGEX: r"Date\s+Type\s+Your Ref\s+Our Ref\s+Debit\s+Credit",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [36, 85, 145, 240, 350, 460, 560]
+        },
+        BEGIN_ROW1: r'(?i)([\d\/]{4,12})\s+([a-z\s]{1,12})\s+([a-z]{1,3}[\d]+)\s+(\d+)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([\d\/]{4,12})\s+([a-z\s]{1,12})\s+([a-z]{1,3}[\d]+)\s+(\d+)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Date', 'Type', 'Invoice No', 'Utopia', 'Debit', 'payment']
+    },
+
+    'Swisscom (Schweiz) AG': {
+        REGEX: r"B\_*e\_*l\_*e\_*g\_+I\_*h\_*r[\_\s]*B\_*e\_*l\_*e\_*g\_+",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [89, 155, 245, 355, 415, 465, 570]
+        },
+        BEGIN_ROW1: r'(?i)(\d+)\s+([a-z]{1,4}[\d]{4,10})\s+([\.\d\/\-]{6,12})\s+([a-z\s]+)\s+([\,\.\d\-]{1,12})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)(\d+)\s+([a-z]{1,4}[\d]{4,10})\s+([\.\d\/\-]{6,12})\s+([a-z\s]+)\s+([\,\.\d\-]{1,12})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Beleg', 'Ihr Beleg', 'Datum', 'Währung', 'Skonto', 'Akt.Betrag']
+    },
+
+    'AXIOM TELECOM (LLC)': {
+        REGEX: r"Reference Date Description Amount \( AED \)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [19, 89, 175, 458, 566]
+        },
+        BEGIN_ROW1: r'(?i)([a-z]{1,3}[\s\d\/]+)\s+([\.\d\/\-]{6,12})\s+([a-z\s]+)\s+([\,\.\d\-]{1,12})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([a-z]{1,3}[\s\d\/]+)\s+([\.\d\/\-]{6,12})\s+([a-z\s]+)\s+([\,\.\d\-]{1,12})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Reference', 'Date', 'NON', 'Amount']
+    },
+
+    'NOS TECHNOLOGY - Concepção, Construção e Gestão de Redes de': {
+        REGEX: r"(?is)N/ Refª[\s_]*V/ Doc[\s_]*Data[\s_]*Data Venct\º[\s_]*Montante",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [18, 89, 225, 299, 428, 492]
+        },
+        BEGIN_ROW1: r'(?i)(\d+)\s+([a-z]{1,3}[\s\d\/]+)\s+([\.\d\-]{6,12})\s+([\.\d\-]{6,12})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)(\d+)\s+([a-z]{1,3}[\s\d\/]+)\s+([\.\d\-]{6,12})\s+([\.\d\-]{6,12})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['N/ Refª', 'V/ Doc', 'Data ', 'Data Venctº', 'Payment']
+    },
+
+    'Orange Espagne S.A.': {
+        REGEX: r'(?i)ASIGNACIÓN Nº DOC. Ref.FRAS.Recibidas TEXTO F.FACTURA. IMPORTE MON|ASIGNACIÓN Nº\s+DOC.\s+REFERENCIA\s+TEXTO\s+F.FACTURA\s+IMPORTE\s+MON',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [13, 113, 169, 266, 564, 697, 757, 794]
+        },
+        BEGIN_ROW1: r'(?i)([a-z\d]{1,3}[\d\-]+|[\_\da-z]+)\s+(\d+)\s+([a-z]{1,3}[\d\-]+|[a-z\d\-]+)\s+([\.\d\-]{6,12})\s+',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([a-z\d]{1,3}[\d\-]+|[\_\da-z]+)\s+(\d+)\s+([a-z]{1,3}[\d\-]+|[a-z\d\-]+)\s+([\.\d\-]{6,12})\s+',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['ASIGNACIÓN', 'DOC.', 'REFERENCIA', 'TEXTO', 'F.FACTURA', 'PAYMENT', 'MON']
+    },
+
+    'MASMOVIL BROADBAND S.A.U.': {
+        REGEX: r'(?i)Su doc\.[\s_]*Fecha[\s_]*Impte.bruto[\s_]*Retención[\s_]*Impte.pago[\s_]*',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [44, 130, 240, 345, 450, 560]
+        },
+        BEGIN_ROW1: r'(?i)([a-z]{1,3}[\d\-]+)\s+([\.\d\-]{6,12})\s+([\d\.\,\-]{1,25})\s+([\d\.\,\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([a-z]{1,3}[\d\-]+)\s+([\.\d\-]{6,12})\s+([\d\.\,\-]{1,25})\s+([\d\.\,\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Su doc.', 'date', 'Impte.bruto', 'Retención', 'Impte.pago']
+    },
+
+    'Manx Telecom Trading Ltd': {
+        REGEX: r'Our Reference Your Reference Invoice Date Amount Currency',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [39, 155, 293, 365, 458, 534]
+        },
+        BEGIN_ROW1: r'(?i)([a-z\d]{6,14})\s+([a-z]{2,3}\d{4,10})\s+([\d\.\/]{6,10})\s+([\d\.\,\-]{1,30})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([a-z\d]{6,14})\s+([a-z]{2,3}\d{4,10})\s+([\d\.\/]{6,10})\s+([\d\.\,\-]{1,30})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Our', 'Your Reference', 'Invoice Date', 'Amount', 'Currency']
+    },
+
+    'Acondistec GmbH': {
+        REGEX: r'Zahlung Rechnung Externe Datum Betrag Skonto Zahlungsbetrag',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [27, 65, 120, 218, 300, 367, 415, 478, 535, 568]
+        },
+        BEGIN_ROW1: r'(?i)(\d+)\s+(\d+)\s+([a-z]{1,3}\d+)\s+([\d\.]{10})\s+([\d\,\.\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)(\d+)\s+(\d+)\s+([a-z]{1,3}\d+)\s+([\d\.]{10})\s+([\d\,\.\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Zahlung', 'Rechnung', 'Externe', 'Datum', 'Betrag', 'cur', 'Skonto', 'payment', 'currency']
+    },
+
+    'ESB Telecoms Limited': {
+        REGEX: r'Our Document[\n\_]*\s+Your Document[\n\_]*\s+Date[\n\_]*\s+Deductions[\n\_]*\s+Net Payment[\n\_]',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [10, 94, 209, 335, 450, 550]
+        },
+        BEGIN_ROW1: r'(\d{4,10}[\s\n\_]*)\s+((?i)[\da-z]{8,15}[\s\n\_]*)\s+([\d\/\-\.]{3,15}[\_]*)\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(\d{4,10}[\s\n\_]*)\s+((?i)[\da-z]{8,15}[\s\n\_]*)\s+([\d\/\-\.]{3,15}[\_]*)\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Our', 'Your Document', 'Date', 'Deductions', 'Net Payment']
+    },
+
+    'LANIT Int\'l Ltd': {
+        REGEX: r'Invoice Invoice date Payment dateInvoice amount \(GBP\)Settlement',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [43, 162, 222, 282, 371, 451, 533]
+        },
+        BEGIN_ROW1: r'((?i)[a-z]{1,3}[\d\-]{1,15})\s+([\d\.\/]{1,14})\s+([\d\.\/]{1,14})\s+([\£\d\.\,\-]{1,25})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'((?i)[a-z]{1,3}[\d\-]{1,15})\s+([\d\.\/]{1,14})\s+([\d\.\/]{1,14})\s+([\£\d\.\,\-]{1,25})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice no', 'Invoice Date', 'Payment date', 'Invoice amount (GBP)', 'Settlement',
+                  'Payment amount(GBP)']
+    },
+
+    'Compania Dominicana de Telefonos, S.A.': {
+        REGEX: r'Invoice # Invoice Date Amount Discount Net amount|# Factura. Fecha Monto pago Descuento',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [49, 130, 220, 315, 440, 540]
+        },
+        BEGIN_ROW1: r'((?i)[a-z]{1,3}[\d\-]{1,15})\s+([\d\.\/]{1,14})\s+([\d\.\,\-]{1,25})\s+([\(\)\d\.\,\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'((?i)[a-z]{1,3}[\d\-]{1,15})\s+([\d\.\/]{1,14})\s+([\d\.\,\-]{1,25})\s+([\(\)\d\.\,\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice #', 'Invoice Date', 'Amount', 'Discount', 'Net amount']
+    },
+
+    'KCOM Group PLC': {
+        REGEX: r'Date Type Our Ref. Your Ref. Amount',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [28, 120, 200, 330, 480, 566]
+        },
+        BEGIN_ROW1: r"(\d{2}/\d{2}/\d{4})\s+(\w+)\s+(\d+)\s+(\w+\d+)\s+([\d\.\,\-]*)",
+        BEGIN_ROW2: '',
+        END_ROW1: r"(\d{2}/\d{2}/\d{4})\s+(\w+)\s+(\d+)\s+(\w+\d+)\s+([\d\.\,\-]*)",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Date', 'Type', 'Our Ref.', 'Your Ref.', 'Amount']
+    },
+
+    'Power Control Ltd': {
+        REGEX: r'Transaction Date Type Reference 2nd Ref. / Description Outstanding',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [36, 120, 175, 255, 450, 541]
+        },
+        BEGIN_ROW1: r"(\d{2}/\d{2}/\d{4})\s+(\w+)\s+(\w{2}\d{7})\s([\w\s]+)\s(\d+.\d+)",
+        BEGIN_ROW2: '',
+        END_ROW1: r"(\d{2}/\d{2}/\d{4})\s+(\w+)\s+(\w{2}\d{7})\s([\w\s]+)\s(\d+.\d+)",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Transaction Date', 'Type', 'Reference', '2nd Ref. / Description', 'Outstanding']
+    },
+
+    'emdocr': {
+        REGEX: r'Date\s+Your\s+Invoice\s+Our\s+Invoice\s+No.\s+Description Amount',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [22, 95, 185, 425, 574]
+        },
+        BEGIN_ROW1: r'([\d\/\-\.]{8,10}[\s\n\_]*)\s+((?i)[\da-z]{1,15}[\s\n\_]*)\s+((?i)[a-z\s\d]*)\s+([\d\.\,\-]{1,20}[\s\n\_]*)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d\/\-\.]{8,10}[\s\n\_]*)\s+((?i)[\da-z]{1,15}[\s\n\_]*)\s+((?i)[a-z\s\d]*)\s+([\d\.\,\-]{1,20}[\s\n\_]*)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Date', 'Invoice No', 'our no', 'Amount']
+    },
+
+    'ICBANK': {
+        REGEX: "(?i)number above.[\n\s]*Invoice No./[\n\s]*Our Reference[\n\s]*Date[\n\s]*Amount[\n\s]*Credit Note No.",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [35, 120, 255, 425, 549]
+        },
+        BEGIN_ROW1: r'(\d{4,10}[\s\n\_]*)\s+((?i)[\da-z]{1,15}[\s\n\_]*)\s+([\d\/\-\.]+[\s\n\_]*)\s+([\d\.\,\-]{1,20}[\s\n\_]*)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(\d{4,10}[\s\n\_]*)\s+((?i)[\da-z]{1,15}[\s\n\_]*)\s+([\d\/\-\.]+[\s\n\_]*)\s+([\d\.\,\-]{1,20}[\s\n\_]*)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['our', 'Invoice No', 'Date', 'Amount']
+    },
+
+    'Harman': {
+        REGEX: r"(?i)Document[\n\_]*\s+Your document[\n\_]*\s+Date[\n\_]*\s+Deductions[\n\_]*\s+Gross amount[\n\_]*\s+",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [49, 115, 235, 335, 465, 560]
+        },
+        BEGIN_ROW1: r'(\d{4,10}[\s\n\_]*)\s+((?i)[\da-z]{1,15}[\s\n\_]*)\s+([\d\/\-\.]+[\s\n\_]*)\s+([\d\.\,\-]{1,20}[\s\n\_]*)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(\d{4,10}[\s\n\_]*)\s+((?i)[\da-z]{1,15}[\s\n\_]*)\s+([\d\/\-\.]+[\s\n\_]*)\s+([\d\.\,\-]{1,20}[\s\n\_]*)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Document', 'Invoice No', 'Date', 'Deductions', 'Gross amount']
+    },
+
+    'Worcestershire County Council': {
+        REGEX: r"INVOICEDATE TYPE YOURREF OUR REF AMOUNT£",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [54, 142, 210, 340, 452, 564]
+        },
+        BEGIN_ROW1: r'([\d\.\/\-]{1,15}[\n\_]{0,20})\s+([a-zA-Z]{1,15}[\n\_]{0,20})\s+([A-Za-z]{1,3}[\d]{4,15}[\n\_]{0,20})\s+(\d{1,15}[\n_]{0,20})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d\.\/\-]{1,15}[\n\_]{0,20})\s+([a-zA-Z]{1,15}[\n\_]{0,20})\s+([A-Za-z]{1,3}[\d]{4,15}[\n\_]{0,20})\s+(\d{1,15}[\n_]{0,20})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['INVOICEDATE', 'TYPE', 'YOUR INVOICE', 'OUR', 'AMOUNT £']
+    },
+
+    'Meteor Mobile Communications Ltd REMITTANCE': {
+        REGEX: r"Our Reference Your Invoice Invoice Date Deductions Gross amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [49, 120, 210, 340, 470, 566]
+        },
+        BEGIN_ROW1: r'(\d{1,15}[\n_]{0,20})\s+([A-Za-z]{1,3}[\d]{4,15}[\n\_]{0,20})\s+([\d\.\/\-]{1,15}[\n\_]{0,20})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(\d{1,15}[\n_]{0,20})\s+([A-Za-z]{1,3}[\d]{4,15}[\n\_]{0,20})\s+([\d\.\/\-]{1,15}[\n\_]{0,20})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Our', 'Your Invoice', 'Date', 'Deductions', 'Gross amount']
+    },
+
+    'Sure \(Jersey\) Limited': {
+        REGEX: r"Document\s+date Invoice\s+No.\s+Payment\sID\sNett",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [54, 110, 190, 340, 480]
+        },
+        BEGIN_ROW1: r'([\d\-\.\/]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+(.*?)\s+([\.\,\d\-]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d\-\.\/]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+(.*?)\s+([\.\,\d\-]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Document date', 'Invoice No', 'ID', 'Payment']
+    },
+
+    'Vodafone_citi_bank1': {
+        REGEX: r"Invoice Date Invoice Number Invoice Amount \(Rs.\) TDS Deducted WCT / Other Amount Paid Earlier Payment Amount \(Rs\)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [5, 61, 160, 235, 308, 380, 470, 553]
+        },
+        BEGIN_ROW1: r'\d{6}\s*HW[a-zA-Z]{1,10}[\d\?]{1,15}\s+.*?\s+\d{1,10}\.[\d\.]{0,3}',
+        BEGIN_ROW2: '',
+        END_ROW1: r'\d{6}\s*HW[a-zA-Z]{1,10}[\d\?]{1,15}\s+.*?\s+\d{1,10}\.[\d\.]{0,3}',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Invoice Number', 'Invoice Amount (Rs.)', 'TD', 'WC', 'Earlier',
+                  'Payment Amount (Rs)']
+    },
+
+    'Vodafone_citi_bank2': {
+        REGEX: r"Invoice Date Invoice Number Invoice Amount TDS Deducted GST hold WCT/Other",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [5, 61, 141, 202, 266, 320, 394, 474, 554]
+        },
+        BEGIN_ROW1: r'(?i)([\d]+)\s+([a-z\?\d]+)\s+([\d\.\,\-]+)\s+([\d\.\,\-]+)\s+',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([\d]+)\s+([a-z\?\d]+)\s+([\d\.\,\-]+)\s+([\d\.\,\-]+)\s+',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Invoice Number', 'Invoice Amount (Rs.)', 'TD', 'GST', 'WC', 'Earlier',
+                  'Payment Amount (Rs)']
+    },
+
+    'TELECOMUNICAÇÕES S.A': {
+        REGEX: r"Nº Documento Tipo Data Valor Total Valor Pago Desc. Financeiro Valor Actual",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [29, 112, 180, 260, 340, 400, 479, 566]
+        },
+        BEGIN_ROW1: r'([a-zA-Z]{1,3}[\d\/]{1,15})\s+([a-zA-Z]{1,12})\s+([\d\-\.\s]{1,20})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z]{1,3}[\d\/]{1,15})\s+([a-zA-Z]{1,12})\s+([\d\-\.\s]{1,20})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Nº Documento', 'type', 'Data', 'our amount', 'payment amount', 'you amount']
+    },
+
+    'UK Broadband Limited': {
+        REGEX: r"Date\s+Type\s+Your Ref\s+Our Ref\s+Amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [45, 122, 210, 290, 450, 574]
+        },
+        BEGIN_ROW1: r'([\d\/\.\-]{1,15})\s+([A-Za-z]{1,20})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d\/\.\-]{1,15})\s+([A-Za-z]{1,20})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'type', 'invoice no', 'our', 'Amount']
+    },
+
+    'British Telecommunications Plc': {
+        REGEX: r"Invoice Date\s+Invoice Number\s+Maturity Date\s+Currency\s+Invoice Amount\s+Full Credit Note",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [44, 107, 248, 315, 354, 425, 541]
+        },
+        BEGIN_ROW1: r'([a-zA-Z]{1,3}[\s\d]{1,20})\s+([a-zA-Z]{1,3}[\d\/\-]{4,15}|\d+)\s+(|[a-zA-Z]{1,3}[\s\d]{1,20})\s+([A-Za-z]{1,8})\s+([\d\.\,\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z]{1,3}[\s\d]{1,20})\s+([a-zA-Z]{1,3}[\d\/\-]{4,15}|\d+)\s+(|[a-zA-Z]{1,3}[\s\d]{1,20})\s+([A-Za-z]{1,8})\s+([\d\.\,\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Invoice Number', 'Maturity Date', 'Currency', 'Invoice Amount',
+                  'Full Credit Note amout']
+    },
+
+    'Telefonica del Peru S.A.A': {
+        REGEX: r"Factura\s+UUID\s+Importe\s+Moneda\s+Fecha\s+Numero de",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [22, 107, 215, 315, 374, 457, 543]
+        },
+        BEGIN_ROW1: r'([a-zA-Z\d]{1,6}[\d\-]{1,15})\s+(.*)\s+([\d\.\,\-]{1,20})\s+([a-zA-Z]{1,10})\s+([\d\.\-]{1,20})\s+([\d]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z\d]{1,6}[\d\-]{1,15})\s+(.*)\s+([\d\.\,\-]{1,20})\s+([a-zA-Z]{1,10})\s+([\d\.\-]{1,20})\s+([\d]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Factura', 'UUID', 'Importe pagado', 'Moneda', 'Fecha Valor del pago', 'de Pago']
+    },
+
+    'Sky Telecommunications Services Limited': {
+        REGEX: r"Inv Date\s+Invoice Number\s+Our Reference\s+Amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [15, 100, 250, 415, 577]
+        },
+        BEGIN_ROW1: r'([\d\/\.\-]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([\d]{1,20})\s+([\d\,\.\-]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d\/\.\-]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([\d]{1,20})\s+([\d\,\.\-]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Inv Date', 'Invoice Number', 'Our', 'Amount']
+    },
+
+    'TPG': {
+        REGEX: r"Tax invoice\s+Tax invoice date\s+Tax invoice amount\s+Discount used\s+Payment amount\s+Currency",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [30, 100, 200, 320, 400, 477, 542]
+        },
+        BEGIN_ROW1: r'([a-zA-Z]{1,3}[\d]{1,15})\s+([\d\/\.\-]{1,15})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z]{1,3}[\d]{1,15})\s+([\d\/\.\-]{1,15})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['invoice no', 'Tax invoice date', 'Tax invoice amount', 'Discount used', 'Payment amount', 'Currency']
+    },
+
+    'Hutchison Drei Austria GmbH': {
+        REGEX: r"Reference\s+Inv.-Date\s+Inv.-Number\s+Inv.-Amount\s+Discount Amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [55, 145, 220, 320, 400, 477, 547]
+        },
+        BEGIN_ROW1: r'([\d]{1,15})\s+([\d\/\.\-]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d]{1,15})\s+([\d\/\.\-]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['ID', 'Inv.-Date', 'Inv.-Number', 'Inv.-Amount', 'Discount', 'PAYMENT AMOUNT']
+    },
+
+    'Orange Tunisie SA': {
+        REGEX: r"N° Bordereau Date du Réglement N° Facture Montant facture Devise Net à Payer",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [59, 122, 210, 316, 374, 450, 492, 544, 624, 695]
+        },
+        BEGIN_ROW1: r'([A-Za-z\d]{1,20})\s+([\d\/\.\-]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([A-Za-z\s]{1,15})\s+([\d\,\.\-\s]{1,20})\s+([A-Za-z]{1,8})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([A-Za-z\d]{1,20})\s+([\d\/\.\-]{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([A-Za-z\s]{1,15})\s+([\d\,\.\-\s]{1,20})\s+([A-Za-z]{1,8})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['N° Bordereau', 'Date du Réglement', 'N° Facture', 'Mode de Réglement', 'Montant facture', 'Devise',
+                  'Taux Retenue', 'Montant de Retenue', 'Net à Payer']
+    },
+
+    'Newzland_Spark New Zealand Trading Limited ': {
+        REGEX: r"Invoice Number Date Doc. No. Disc / WHT Amount \(USD\)|Invoice Number Date Doc. No. Disc / WHT Amount \(NZD\)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [17, 120, 230, 338, 435, 563]
+        },
+        BEGIN_ROW1: r'([a-zA-Z]{1,3}[\d]{1,15})\s+([\.\-\/\d]{1,12})\s+([\d]{1,20})\s+([\.\,\d\-]{1,20})\s+([\.\,\d\-]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z]{1,3}[\d]{1,15})\s+([\.\-\/\d]{1,12})\s+([\d]{1,20})\s+([\.\,\d\-]{1,20})\s+([\.\,\d\-]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Number', 'Invoice Date', 'Doc. No.', 'Disc / WHT', 'Amount']
+    },
+
+    'Bulgraia_Videolux LTD': {
+        REGEX: r"Ном.документ Фактура Дата Дискаунт Брутна сума",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [44, 120, 230, 348, 435, 556]
+        },
+        BEGIN_ROW1: r"([\d]{1,20}[\s\_]{,100})\s+([\d]{1,20}[\s\_]{,100})\s+([\d\.]{4,12}[\s\_]{,100})\s+([\d\.\,\-]{1,25}[\s\_]{,100})",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([\d]{1,20}[\s\_]{,100})\s+([\d]{1,20}[\s\_]{,100})\s+([\d\.]{4,12}[\s\_]{,100})\s+([\d\.\,\-]{1,25}[\s\_]{,100})",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['ID', 'Invoice No', 'invoice date', 'tds', 'Брутна сума']
+    },
+
+    'A1 TELEKOM AUSTRIA AG': {
+        REGEX: 'Beleg\s+Ihr\s+Beleg\s+Datum\s+Skonto\s+Bruttobetrag',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [49, 125, 243, 335, 440, 562]
+        },
+        BEGIN_ROW1: r"([\d]{1,25}[\s\_]{,20})\s+([a-zA-Z]{1,3}[\d]{1,20}[\s\_]{,20})\s+([\d\.]{4,10}[\s\_]{,20})\s",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([\d]{1,25}[\s\_]{,20})\s+([a-zA-Z]{1,3}[\d]{1,20}[\s\_]{,20})\s+([\d\.]{4,10}[\s\_]{,20})\s",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Beleg', 'Ihr Beleg', 'invoice date', 'Skonto', 'Bruttobetrag']
+    },
+
+    'Austria_T-Mobile Austria': {
+        REGEX: r"Beleg- Referenz- Beleg- Abzüge Bruttobetrag\snummer nummer datu",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [71, 150, 250, 348, 429, 533]
+        },
+        BEGIN_ROW1: r'(\d{1,15})\s+([a-zA-Z]{1,3}[\d]{1,15})\s+([\.\-\/\d]{1,12})\s+([\.\,\d\-]{1,20})\s+([\.\,\d\-]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d]{1,25}[\s\_]{,20})\s+([a-zA-Z]{1,3}[\d]{1,25}[\s\_]{,20})\s+([\d\.\/\-]{1,15}[\s\_]{,20})\s+([\d\.\,\-]{1,25}[\s\_]{,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Beleg number', 'Reference number', 'Beleg datum', 'Abzüge', 'Bruttobetrag']
+    },
+
+    'ILIAD ITALIA SPA': {
+        REGEX: r"Name\s+Invoice N°\s+Due amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [37, 178, 469, 544]
+        },
+        BEGIN_ROW1: r"(?i)([a-z\s]{10,40})\s+([a-z]{1,15}\s[a-z]{1,3}[0-9\.]{1,12})\s+([0-9\-\s\,\.]{1,15}[a-z]{1,3})",
+        BEGIN_ROW2: '',
+        END_ROW1: r"(?i)([A-Z\s]{10,40})\s+([a-z]{1,15}\s[a-z]{1,3}[0-9\.]{1,12})\s+([0-9\-\s\,\.]{1,15}[a-z]{1,3})",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Name', 'Invoice no', 'payment']
+    },
+
+    'ALSO Deutschland GmbH': {
+        REGEX: "Beleg\s+Ihr Beleg\s+Datum\s+Act. Org.\s+Skonto\s+Bruttobetrag",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [41, 112, 200, 300, 390, 473, 566]
+        },
+        BEGIN_ROW1: r"([\d]{1,25})\s+([a-zA-Z]{1,3}[\d]{1,20})\s+([\d\.]{4,10})\s+([a-zA-Z]{1,15})\s+([\d\.\,\-]{1,25})\s+([\d\.\,\-]{1,25})",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([\d]{1,25})\s+([a-zA-Z]{1,3}[\d]{1,20})\s+([\d\.]{4,10})\s+([a-zA-Z]{1,15})\s+([\d\.\,\-]{1,25})\s+([\d\.\,\-]{1,25})",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Beleg', 'Ihr Beleg', 'Datum', 'Act. Org.', 'Skonto', 'Bruttobetrag']
+    },
+
+    'UK': {
+        REGEX: "(?is)300 SOUTH OAK WAY \s+GREENPARK\s+READING\s+18\-MAR\-20\s+BERKSHIRE\s+RG2 6UF",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [49, 121, 212, 312, 405, 495, 589, 680, 770]
+        },
+        BEGIN_ROW1: r'(?i)([a-z\d\-]+)\s+(\d+)\s+([a-z]{1,3}[\d]{1,10})\s+([\s\d\-\£\$]+\s*\.\s*\d+)\s+([\s\d\-\£\$]+\s*\.\s*\d+)\s+',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([a-z\d\-]+)\s+(\d+)\s+([a-z]{1,3}[\d]{1,10})\s+([\s\d\-\£\$]+\s*\.\s*\d+)\s+([\s\d\-\£\$]+\s*\.\s*\d+)\s+',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Our Ref.', 'Invoice Number', 'Gross O/S Amount', 'Disputed Amount', 'Reson(s)',
+                  'Discount Taken', 'Net Payment']
+    },
+
+    'HongKong_Macau_Standard': {
+        REGEX: "Reference\s+Date\s+Description\s+Amount \( USD \)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [19, 88, 160, 425, 566]
+        },
+        BEGIN_ROW1: r'([A-Za-z\d]{1,20})\s+([\d\/]{8,15})\s+([A-Za-z\d\-\s]{1,30})\s+([\d\.\,\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([A-Za-z\d]{1,20})\s+([\d\/]{8,15})\s+([A-Za-z\d\-\s]{1,30})\s+([\d\.\,\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Description', 'Date', 'Reference', 'Amount ( USD )']
+    },
+
+    'Malasiya_TELEKOM MALAYSIA BERHAD': {
+        REGEX: "Reference\s+Date\s+Description\s+Amount \( MYR \)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [15, 88, 160, 425, 569]
+        },
+        BEGIN_ROW1: r'(?i)([A-Za-z\d\-]{1,20}[\/a-z\-]*)\s+([\d\/\.\-]{8,15})\s+(.*)\s+([\d\.\,\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(?i)([A-Za-z\d\-]{1,20}[\/a-z\-]*)\s+([\d\/\.\-]{8,15})\s+(.*)\s+([\d\.\,\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Reference', 'Date', 'Description', 'Amount ( MYR )']
+    },
+
+    'Malasiya_Celcom Networks Sdn Bhd': {
+        REGEX: "Invoice No Invoice Date PO Number / Description Amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [45, 118, 190, 425, 560]
+        },
+        BEGIN_ROW1: r"([A-Z]{1,3}\d+[-/\dA-Za-z]{1,4}|[A-Z\d]+)\s+([0-9\./]{,10})\s+(520.*)\s+([\d\,\.-]{1,40})",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([A-Z]{1,3}\d+[-/\dA-Za-z]{1,4}|[A-Z\d]+)\s+([0-9\./]{,10})\s+(520.*)\s+([\d\,\.-]{1,40})",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice No', 'Invoice Date', 'PO Number', "Receipt Amount"]
+    },
+
+    'Philippines_GLOBE TELECOM, INC.': {
+        REGEX: "Reference\s+Date\s+Description\s+Amount \( PHP \)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [19, 88, 160, 425, 566]
+        },
+        BEGIN_ROW1: r'(PH\d+)\/*\d*\s+(\d{2}\/\d{2}\/\d{4})(.*)',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(PH\d+)\/*\d*\s+(\d{2}\/\d{2}\/\d{4})(.*)',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Reference', 'Date', 'Description', 'Amount ( PHP )']
+    },
+
+    'Germany1': {
+        REGEX: "Rech.Nr.\s+Belegnummer\s+Re-Datum\s+Akt. Betrag",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [53, 150, 280, 395, 540]
+        },
+        BEGIN_ROW1: r'([A-Za-z]{1,3}[\d\-]{1,15})\s+((?i)[a-z\d\-]{1,25})\s+([\d\.]{1,14})\s+([\d\.\,\-]{1,25})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([A-Za-z]{1,3}[\d\-]{1,15})\s+((?i)[a-z\d\-]{1,25})\s+([\d\.]{1,14})\s+([\d\.\,\-]{1,25})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Rech.Nr.', 'Belegnummer', 'Re-Datum', 'Akt.Betrag']
+    },
+
+    'Vodacom Congo (RDC) s.a.': {
+        REGEX: "(Invoice\s+Invoice\s+Vodacom\s+ Currency\s+Gross\s+Paid)|(Date\s+Numero\s+Reference\s+Unite\s+Montant\s+Montant)",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [55, 110, 190, 260, 312, 395, 466, 540]
+        },
+        BEGIN_ROW1: r'([\d\/\.\-]{1,15})([\s]|[^\s])([A-Z]{1,3}[\d]{1,15})\s+([\d]{1,15})\s+([a-zA-Z]{1,10})\s+([\d\.\,\-]{1,23})\s+([\d\.\,\-]{1,23})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d\/\.\-]{1,15})([\s]|[^\s])([A-Z]{1,3}[\d]{1,15})\s+([\d]{1,15})\s+([a-zA-Z]{1,10})\s+([\d\.\,\-]{1,23})\s+([\d\.\,\-]{1,23})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['invoice date', 'Invoice Number', 'Vodacom Document', 'Cur', 'Gross Amount', 'Deductions',
+                  'Paid Amount']
+    },
+
+    'Hutchinson 3G UK Limited': {
+        REGEX: "Our Reference\s+Invoice Date\s+Invoice Number\s+Currency\s+Amount",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [88, 170, 267, 361, 459, 530]
+        },
+        BEGIN_ROW1: r'([a-zA-Z\d]{1,10})\s+([\d]{1,4}[-/\.]{1}[a-zA-Z]{1,5}[-/\.]{1}[0-9]{1,4})\s+([a-zA-Z]{1,5}[\d-]{1,12})\s+([a-zA-Z]{1,10})\s+([\d\.\,\-]{1,24})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z\d]{1,10})\s+([\d]{1,4}[-/\.]{1}[a-zA-Z]{1,5}[-/\.]{1}[0-9]{1,4})\s+([a-zA-Z]{1,5}[\d-]{1,12})\s+([a-zA-Z]{1,10})\s+([\d\.\,\-]{1,24})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ["OUR", 'Invoice Date', 'Invoice Number', 'Currency', 'Amount']
+    },
+
+    'Free Mobile': {
+        REGEX: "Raison sociale tiers N°\s+de facture\s+Montant échéance",
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [37, 178, 469, 549]
+        },
+        BEGIN_ROW1: r"([a-zA-Z\s]{10,25})\s+([a-zA-Z]{1,15}\s[a-zA-Z]{1,3}[0-9]{1,12})\s+([0-9\-\s\,\.]{1,15}[a-zA-Z]{1,3})",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([a-zA-Z\s]{10,25})\s+([a-zA-Z]{1,15}\s[a-zA-Z]{1,3}[0-9]{1,12})\s+([0-9\-\s\,\.]{1,15}[a-zA-Z]{1,3})",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ["Raison sociale tiers N°", 'de facture', 'Montant échéance']
+    },
+
+    'ms-CNS Communication Network Solution GmbH': {
+        REGEX: 'BS\s+Beleg\-Nr\s+Beleg\-Dat\s+Text\s+RgBetrag\s+Skontobetrag\s+ZlgBetrag',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [37, 76, 155, 245, 300, 365, 425, 496, 565]
+        },
+        BEGIN_ROW1: r"([a-zA-Z]{1,5})\s+([a-zA-Z]{1,3}[\d]{1,12})\s+([\d\.]{4,10})\s+([\d\.]{1,10})\s+([a-zA-Z]{1,5})\s+([\d\.\,\-\s]{1,25})\s+([\d\.\,\-\s]{1,25})\s+([\d\.\,\-\s]{1,25})\s",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([a-zA-Z]{1,5})\s+([a-zA-Z]{1,3}[\d]{1,12})\s+([\d\.]{4,10})\s+([\d\.]{1,10})\s+([a-zA-Z]{1,5})\s+([\d\.\,\-\s]{1,25})\s+([\d\.\,\-\s]{1,25})\s+([\d\.\,\-\s]{1,25})\s",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['BS', 'Beleg-Nr', 'Beleg-Dat', 'Text', 'cur', 'RgBetrag', 'Skontobetrag', 'ZlgBetrag']
+    },
+
+    'Alltron AG': {
+        REGEX: 'Document:\s+Your Document:\s+Date:\s+Amount',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [58, 155, 265, 440, 562]
+        },
+        BEGIN_ROW1: r"([a-zA-Z\s\/]{1,25})\s+([a-zA-Z]{1,3}[\d]{1,20})\s+([\d\.]{4,10})\s",
+        BEGIN_ROW2: '',
+        END_ROW1: r"([a-zA-Z\s\/]{1,25})\s+([a-zA-Z]{1,3}[\d]{1,20})\s+([\d\.]{4,10})\s",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['type:', 'Your Document', ' Date:', 'payment']
+    },
+
+    '印度Vodafone': {
+        REGEX: 'Reference\s+Date\s+Description\s+Amount \( INR \)',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [19, 100, 190, 490, 566]
+        },
+        BEGIN_ROW1: r'([a-zA-Z\s\.]{,20})\s(\d{2}\/\d{2}\/\d{4})\s*Inv Ref=(\w*)\S*\s*[a-z=]*\s*(\-?\d*\,?\d*\,?\d*\,?\.?\d*)|(.*?)\s+(\d{2}\/\d{2}\/\d{4})\s+(.*?)\s+([\-\d\,\.]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([a-zA-Z\s\.]{,20})\s(\d{2}\/\d{2}\/\d{4})\s*Inv Ref=(\w*)\S*\s*[a-z=]*\s*(\-?\d*\,?\d*\,?\d*\,?\.?\d*)|(.*?)\s+(\d{2}\/\d{2}\/\d{4})\s+(.*?)\s+([\-\d\,\.]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['type', 'Date', 'Description', 'Amount ( INR )']
+    },
+
+    'Sydney Trains Pty Ltd': {
+        REGEX: 'Invoice.+Invoice.+Our.+Invoice.+W/Tax.+Disc.+Payment.',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [29, 113, 197, 283, 369, 426, 482, 569]
+        },
+        BEGIN_ROW1: r'([\d]{,4}[-/\.\s]{1,2}[a-zA-Z]{1,5}[-/\.\s]{1}[0-9]{1,4})\s+([a-zA-Z]{1,5}[\d-]{,12})\s+([a-zA-Z\d]{,14})\s+([\d\.\,\-]{1,24})\s+([\d\.\,\-]{1,24})\s+([\d\.\,\-]{1,24})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d]{,4}[-/\.\s]{1,2}[a-zA-Z]{1,5}[-/\.\s]{1}[0-9]{1,4})\s+([a-zA-Z]{1,5}[\d-]{,12})\s+([a-zA-Z\d]{,14})\s+([\d\.\,\-]{1,24})\s+([\d\.\,\-]{1,24})\s+([\d\.\,\-]{1,24})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Invoice No.', 'Our Reference', 'Invoice Amount', 'W/Tax $', 'Disc $', 'Payment $']
+    },
+
+    'Southern Cross University': {
+        REGEX: '(Date)\s+Reference.+Reference.+(Description)\s+(Amount)\s',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [29, 93, 188, 260, 495, 553]
+        },
+        BEGIN_ROW1: r'([\d]{,2}[\s]{1,2}[a-zA-Z]{1,5}[\s]{1}[0-9]{1,4})\s+([a-zA-Z]{1,5}[\d-]{1,12})\s+(.*?)\s+([\d\.\,\-]{1,24})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'([\d]{,2}[\s]{1,2}[a-zA-Z]{1,5}[\s]{1}[0-9]{1,4})\s+([a-zA-Z]{1,5}[\d-]{1,12})\s+(.*?)\s+([\d\.\,\-]{1,24})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Date', 'Reference', 'Reference 2', 'Description', 'Amount']
+    },
+
+    'Solgen Energy Pty Ltd': {
+        REGEX: 'Invoice.+Reference.+Invoice.+Amount.+Discount.+Applied.',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [37, 105, 260, 340, 419, 490, 573]
+        },
+        BEGIN_ROW1: r'(\d{1,2}\/\d{1,2}\/\d{2,4})\s+([a-zA-Z\s\#]{1,10}[\d]{1,12})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(\d{1,2}\/\d{1,2}\/\d{2,4})\s+([a-zA-Z\s\#]{1,10}[\d]{1,12})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})\s+([\d\,\.\-]{1,20})',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice Date', 'Reference No.', 'Invoice Amount', 'Amount Due', 'Discount', 'Applied Amount']
+    },
+
+    'German_Telekom Deutschland GmbH': {
+        REGEX: r'Document\sReference\sDate\sCash\sGross amount',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [52, 150, 255, 350, 436, 533]
+        },
+        BEGIN_ROW1: r'(\d{1,15}[\s\_]{,20})\s+([a-zA-Z\s]{1,5}[0-9-]{1,25}[\s\_]{,20}|[a-zA-Z]{1,3}[\d]{12})\s+([\d\.\/\,]{1,12}[\s\_]{,20})\s+([\d\.\/\,]{1,20}[\s\_]{,20})\s',
+        BEGIN_ROW2: '',
+        END_ROW1: r'(\d{1,15}[\s\_]{,20})\s+([a-zA-Z\s]{1,5}[0-9-]{1,25}[\s\_]{,20}|[a-zA-Z]{1,3}[\d]{12})\s+([\d\.\/\,]{1,12}[\s\_]{,20})\s+([\d\.\/\,]{1,20}[\s\_]{,20})\s',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Document', 'Reference number', 'Date', 'Cash discount', 'Invoice amount']
+    },
+
+    'ING3-Virgin Media Ltd.': {
+        REGEX: 'Invoice.+Invoice.+Due.+Certified.+Original.+Deducted.+Type.+Rate.+VAT.+VAT.+amount',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [45, 110, 158, 218, 280, 345, 410, 460, 515, 540, 585, 642]
+        },
+        BEGIN_ROW1: r"\s*\w+\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}\.\d{2}\.\d{4}\s+[\d\.,]+\s+[\d\.,]+\s+[\d\.,]+\s+\w+\s+[\d,]+\s+[\d\.,]+\s*",
+        BEGIN_ROW2: '',
+        END_ROW1: r"\s*\w+\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}\.\d{2}\.\d{4}\s+[\d\.,]+\s+[\d\.,]+\s+[\d\.,]+\s+\w+\s+[\d,]+\s+[\d\.,]+\s*",
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Invoice number', 'Invoice date', 'Due date', 'Original amount(1)', 'Certified amount(2)',
+                  'Deducted amount(3)', 'Type', 'Rate(4) %', 'VAT %', 'VAT amount(5)', 'Net amount(6)']
+    },
+
+    'ING1-Virgin Media Ltd.': {
+        REGEX: 'Receivable.+Invoice.+Due.+Original.+Certified.+Deducted.+Type.+Rate.+VAT.+VAT.+Net',
+        TABLE_SETTINGS: {
+            "vertical_strategy": "explicit",
+            "horizontal_strategy": "text",
+            "explicit_vertical_lines": [45, 116, 158, 201, 269, 337, 394, 450, 493, 524, 572, 638]
+        },
+        BEGIN_ROW1: r'\w+\t\d{2}\.\d{2}\.\d{4}\t\d{2}\.\d{2}\.\d{4}\t-?[\d\.,]+\t-?[\d\.,]+\t-?[\d\.,]+\t\w+\t[\d,]+\t.*\t.*\t-?[\d\.,]+',
+        BEGIN_ROW2: '',
+        END_ROW1: r'\w+\t\d{2}\.\d{2}\.\d{4}\t\d{2}\.\d{2}\.\d{4}\t-?[\d\.,]+\t-?[\d\.,]+\t-?[\d\.,]+\t\w+\t[\d,]+\t.*\t.*\t-?[\d\.,]+',
+        END_ROW2: '',
+        REAL_ROW: '',
+        BREAK_ROW: '',
+        COLUMNS: ['Receivable number', 'Invoice date', 'Due date', 'Original amount(1)', 'Certified amount(2)',
+                  'Deducted amount(3)', 'Type', 'Rate(4) %', 'VAT %', 'VAT amount(5)', 'Net amount(6)']
+    },
+
+}
