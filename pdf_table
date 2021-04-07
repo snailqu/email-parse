@@ -1,0 +1,209 @@
+# -*- coding: utf-8 -*-
+
+import os
+import pdfplumber
+import re
+import copy
+
+from pdf_config import CONFIG
+from pdf_config import COL_SEP
+from pdf_config import REGEX, TABLE_SETTINGS, BEGIN_ROW1, BEGIN_ROW2, END_ROW1, END_ROW2, COLUMNS
+
+
+class PdfTable(object):
+    def __init__(self, file_path):
+        """
+        file_path: 文件路径
+        password: pdf密码
+        table_settings：表格提取参数
+        """
+        self.pdf = pdfplumber.open(file_path)
+        self.pages = self.pdf.pages
+        self.template = self.__recognize_template()
+
+
+    def clear(self):
+        """关闭pdf，清空变量"""
+        self.pdf.close()
+        self.pdf = None
+        self.pages = None
+        self.template = None
+
+
+    def __recognize_template(self):
+        """识别模板"""
+        # 提取文本
+        texts = []
+        for page in self.pages:
+            text = page.extract_text()
+            texts.append(text) if text else texts.append('')
+        texts = '\n'.join(texts)
+        # 识别模板
+        for template, rule in CONFIG.items():
+            if re.search(rule[REGEX], texts, re.S):  # re.S: .可以匹配换行
+                print('识别到模板:', template)
+                return template
+        print('未识别到模板')
+        return None
+
+
+    def extract_tables(self):
+        """利用分割参数、首尾行正则提取表格"""
+        # 未匹配到模板
+        if self.template is None:
+            return None
+
+        # 分割表格
+        all_tables = []
+        for page in self.pages:
+            page_setting = self.__get_page_setting(page)  # 获取当前页面的配置参数
+            page_table_settings = self.__update_table_settings(page, page_setting[TABLE_SETTINGS])  # 表格切分线适配当前页面
+            tables = page.extract_tables(table_settings=page_table_settings)
+            for table in tables:
+                new_table = self.__segment_table(table, page_setting)
+                if not new_table:
+                    continue
+                all_tables.append(new_table)
+        return all_tables
+
+    def __get_page_setting(self, page):
+        """
+        模板有多种分割参数，根据页面正则识别配置参数
+        """
+        page_setting = None
+        rule = CONFIG[self.template]
+        if rule.get('strategy') == 'multi' and type(rule.get('settings')) == list:  # multi settings
+            text = page.extract_text()
+            for setting in rule['settings']:
+                if re.search(setting[REGEX], text):
+                    page_setting = setting
+                    break
+        else:  # single setting
+            page_setting = rule
+        return page_setting
+
+    def __update_table_settings(self, page, global_table_settings):
+        """
+        自动找出最左边和最右边竖线
+        """
+        page_table_settings = copy.deepcopy(global_table_settings)
+        if 'explicit_vertical_lines' in page_table_settings:
+            vlines = page_table_settings['explicit_vertical_lines']
+            vlines.sort()
+            lefts = [int(ch['x0']) for ch in page.chars]  # Distance of left side of character from left side of page.
+            rights = [int(ch['x1']) for ch in page.chars]  # Distance of right side of character from left side of page.
+            vline_max, vline_min = max(rights), min(lefts)
+            if vline_min > vlines[0]:
+                vlines[0] = vline_min - 1  # 左右多留1个位置，避免文字被切开
+            if vline_max < vlines[-1]:
+                vlines[-1] = vline_max + 1
+            page_table_settings['explicit_vertical_lines'] = vlines
+        return page_table_settings
+
+    def __segment_table(self, table, page_setting):
+        table = self.__repalce_blank(table)
+        table = self.__delete_blankline(table)
+        table = self.__find_table_region(table, page_setting['BEGIN_ROW1'], page_setting['BEGIN_ROW2'], page_setting['END_ROW1'], page_setting['END_ROW2'])
+        table = self.__merge_row(table, page_setting['REAL_ROW'], page_setting['BREAK_ROW'])
+        if page_setting.get(COLUMNS):
+            table.insert(0, page_setting['COLUMNS'])
+        return table
+
+    @staticmethod
+    def __repalce_blank(table):
+        """
+        空白格替换成NULL
+        """
+        NULL = ''
+        new_table = []
+        for row in table:
+            new_row = []
+            for cell in row:
+                if cell and cell != '':
+                    new_row.append(cell)
+                else:
+                    new_row.append(NULL)
+            new_table.append(new_row)
+        return new_table
+
+    @staticmethod
+    def __delete_blankline(table):
+        """
+        删除空白行
+        """
+        return [row for row in table if ''.join(row) != '']
+
+    @staticmethod
+    def __find_table_region(table, BEGIN_ROW1_STR, BEGIN_ROW2_STR, END_ROW1_STR, END_ROW2_STR):
+        """
+        找出表格有效的首尾行
+        """
+        # find begin row
+        begin_row = None
+        for idx, row in enumerate(table):
+            row_str = COL_SEP.join(row)
+            if idx < len(table) - 1:
+                next_row_str = COL_SEP.join(table[idx + 1])
+            else:
+                next_row_str = None
+
+            if next_row_str and re.match(BEGIN_ROW1_STR, row_str, re.S) and re.match(BEGIN_ROW2_STR, next_row_str, re.S):
+                begin_row = idx
+                break
+
+        # find end row
+        end_row = None
+        reverse_table = table[::-1]
+        for idx, row in enumerate(reverse_table):
+            row_str = COL_SEP.join(row)
+            if idx < len(reverse_table) - 1:
+                next_row_str = COL_SEP.join(reverse_table[idx + 1])
+            else:
+                next_row_str = None
+
+            if next_row_str and re.match(END_ROW1_STR, row_str, re.S) and re.match(END_ROW2_STR, next_row_str, re.S):
+                end_row = len(reverse_table) - 1 - idx
+                break
+        if re.match(BEGIN_ROW1_STR, COL_SEP.join(table[-1]), re.S) and begin_row is None and end_row is not None:  # 有end_row无begin_row
+            return [table[-1]]
+        if re.match(END_ROW1_STR, COL_SEP.join(table[0]), re.S) and end_row is None and begin_row is not None:  # 有begin_row无end_row
+            return [table[0]]
+        if begin_row is None or end_row is None:
+            print('__find_table_region未找到首尾行, begin_row=%s, end_row=%s' % (begin_row, end_row))
+            print(table)
+            return [[]]
+
+        return table[begin_row:end_row + 1]
+
+    @staticmethod
+    def __merge_row(table, REAL_ROW, BREAK_ROW):
+        """
+        无效行合并到上一行
+        """
+        real_table = []
+        for idx, row in enumerate(table):
+            row_str = COL_SEP.join(row)
+            if re.match(REAL_ROW, row_str, re.S):
+                real_table.append(row)
+            elif re.match(BREAK_ROW, row_str, re.S) and len(real_table) > 0:
+                last_row = real_table[-1]
+                real_table[-1] = ['\n'.join([last_row[i], row[i]]).strip() for i in range(len(last_row))]
+            else:
+                print('__merge_row合并失败%s不符合正则%s' % (row, REAL_ROW))
+        return real_table
+
+
+def pdf_run(pdf_path):
+    pdf_table = PdfTable(pdf_path)
+    tables = pdf_table.extract_tables()
+    pdf_table.clear()
+    return tables
+
+
+if __name__ == '__main__':
+    pdf_file_path = r'D:\PDF_reader\pdf_re\Huawei remittance.pdf'
+    pdf_file_path = r'D:\PDF_reader\pdf_re\Malasiya\MY03-MBB-20180427-64513-20180508-0000101199.PDF'
+    pdf_tables = PdfTable(pdf_file_path)
+    out_tables = pdf_tables.extract_tables()
+    print('最终表格： ............... ', out_tables)
+    pdf_tables.clear()
